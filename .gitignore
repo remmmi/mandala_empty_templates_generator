@@ -38,3 +38,4 @@ Thumbs.db
 
 # Generated PDFs (but keep zoo/ configs)
 *.pdf
+img_claude/*
