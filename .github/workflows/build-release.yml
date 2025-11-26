@@ -145,39 +145,145 @@ jobs:
           Write-Host "✅ ZIP created: $zipName ($([Math]::Round($zipSize, 2)) MB)"
 
       # ========================================================================
-      # 6. RELEASE: Create GitHub release with the ZIP
+      # 6. PACKAGE SOURCE: Create source ZIP with Python code
+      # ========================================================================
+      - name: Create source ZIP for Python users
+        shell: pwsh
+        run: |
+          $version = "${{ env.VERSION }}"
+          $sourceZipName = "Mandala-PDF-Generator-Source-v$version.zip"
+
+          # Create a temporary directory for the source package
+          $sourceDir = "source_package"
+          New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+
+          # Copy source files
+          Copy-Item "*.py" -Destination $sourceDir
+          Copy-Item "requirements.txt" -Destination $sourceDir
+          Copy-Item "INSTALLATION.md" -Destination $sourceDir
+          Copy-Item "README.md" -Destination $sourceDir
+          Copy-Item "LICENSE" -Destination $sourceDir
+          Copy-Item "zoo" -Destination $sourceDir -Recurse -ErrorAction SilentlyContinue
+
+          # Create a quick start batch file
+          $batchContent = @(
+            "@echo off",
+            "echo ================================================",
+            "echo Mandala PDF Generator v$version",
+            "echo ================================================",
+            "echo.",
+            "echo Verification de Python...",
+            "python --version >nul 2>&1",
+            "if errorlevel 1 (",
+            "    echo ERREUR: Python n'est pas installe ou pas dans le PATH",
+            "    echo Consultez INSTALLATION.md pour les instructions",
+            "    pause",
+            "    exit /b 1",
+            ")",
+            "echo.",
+            "echo Installation des dependances...",
+            "python -m pip install -r requirements.txt",
+            "if errorlevel 1 (",
+            "    echo ERREUR lors de l'installation des dependances",
+            "    pause",
+            "    exit /b 1",
+            ")",
+            "echo.",
+            "echo Lancement de l'application...",
+            "python gui_pdf_generator.py",
+            "pause"
+          )
+          $batchContent -join "`r`n" | Set-Content -Path "$sourceDir\LANCER.bat" -Encoding ASCII
+
+          # Create ZIP
+          Compress-Archive -Path "$sourceDir\*" -DestinationPath $sourceZipName -Force
+
+          $sourceZipSize = (Get-Item $sourceZipName).Length / 1MB
+          Write-Host "✅ Source ZIP created: $sourceZipName ($([Math]::Round($sourceZipSize, 2)) MB)"
+
+      # ========================================================================
+      # 7. RELEASE: Create GitHub release with both ZIPs
       # ========================================================================
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: Mandala-PDF-Generator-v${{ env.VERSION }}.zip
+          files: |
+            Mandala-PDF-Generator-v${{ env.VERSION }}.zip
+            Mandala-PDF-Generator-Source-v${{ env.VERSION }}.zip
           body: |
             ## Mandala PDF Generator v${{ env.VERSION }}
 
-            ### Installation
-            1. Download the ZIP file below
-            2. Extract it to a folder
-            3. Run the setup executable
-            4. Follow the installation wizard
+            Choisissez la version qui vous convient :
 
-            ### What's Included
-            - Windows installer with the complete application
-            - Automatic Start Menu and Desktop shortcuts
-            - Easy uninstall through Windows Settings
+            ### 📦 Option 1 : Installeur Windows (Recommandé pour la plupart des utilisateurs)
 
-            ### Source Code
-            The source code is available in the automatically generated archives below (Source code zip/tar.gz).
-            You can also browse the code at the tag [${{ github.ref_name }}](https://github.com/remmmi/mandala_empty_templates_generator/tree/${{ github.ref_name }}).
+            **Fichier** : `Mandala-PDF-Generator-v${{ env.VERSION }}.zip`
 
-            ### About Windows SmartScreen
-            Since this is an unsigned application, Windows SmartScreen may show a warning. This is normal for open-source software without expensive code signing certificates. The complete source code is available for verification in this repository.
+            **Pour qui** : Utilisateurs qui veulent une installation simple et rapide
 
-            To install despite the warning:
-            1. Click "More info"
-            2. Click "Run anyway"
+            **Installation** :
+            1. Téléchargez le ZIP ci-dessous
+            2. Extrayez-le dans un dossier
+            3. Lancez le fichier `Mandala-PDF-Generator-Setup-v${{ env.VERSION }}.exe`
+            4. Suivez l'assistant d'installation
+            5. L'application sera disponible dans votre menu Démarrer
 
-            ### Checksum
-            You can verify the integrity of the download by checking the SHA256 hash of the ZIP file against the one listed in the release artifacts.
+            **Inclus** :
+            - Installation automatique
+            - Raccourcis menu Démarrer et bureau
+            - Désinstallation propre via Paramètres Windows
+
+            **Note Windows SmartScreen** : Comme cette application n'est pas signée numériquement (certificat payant), Windows peut afficher un avertissement. C'est normal pour les logiciels open source. Pour continuer :
+            1. Cliquez sur "Informations complémentaires"
+            2. Cliquez sur "Exécuter quand même"
+
+            ---
+
+            ### 🐍 Option 2 : Code source Python (Pour développeurs et utilisateurs avancés)
+
+            **Fichier** : `Mandala-PDF-Generator-Source-v${{ env.VERSION }}.zip`
+
+            **Pour qui** :
+            - Utilisateurs ayant Python installé
+            - Développeurs souhaitant modifier le code
+            - Utilisateurs préférant exécuter depuis le code source
+
+            **Prérequis** : Python 3.8+ installé sur votre système
+
+            **Installation rapide** :
+            1. Téléchargez le ZIP source ci-dessous
+            2. Extrayez-le dans un dossier
+            3. Double-cliquez sur `LANCER.bat` (installe automatiquement les dépendances et lance l'application)
+
+            **Installation manuelle détaillée** :
+            Consultez le fichier `INSTALLATION.md` inclus dans le ZIP pour un guide complet pas-à-pas destiné aux débutants, incluant :
+            - Installation de Python
+            - Installation de pip
+            - Installation des dépendances
+            - Lancement de l'application
+            - Dépannage des problèmes courants
+
+            **Inclus dans le ZIP source** :
+            - Tous les fichiers Python (`.py`)
+            - `requirements.txt` avec toutes les dépendances
+            - `INSTALLATION.md` - Guide détaillé pour débutants
+            - `README.md` - Documentation technique
+            - `LANCER.bat` - Script de lancement automatique
+            - Dossier `zoo/` avec exemples de configurations
+
+            ---
+
+            ### 📚 Documentation
+
+            - **Code source complet** : Consultez le tag [${{ github.ref_name }}](https://github.com/remmmi/mandala_empty_templates_generator/tree/${{ github.ref_name }})
+            - **Archives source GitHub** : Disponibles ci-dessous (tar.gz / zip auto-générés)
+            - **Issues et support** : https://github.com/remmmi/mandala_empty_templates_generator/issues
+
+            ---
+
+            ### 🔒 Vérification d'intégrité
+
+            Vous pouvez vérifier l'intégrité des téléchargements en comparant le hash SHA256 des fichiers avec ceux listés dans les artifacts de la release.
           draft: false
           prerelease: false
         env:
