@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGroupBox, QLabel, QSlider, QSpinBox, QDoubleSpinBox, QPushButton,
     QProgressBar, QScrollArea, QColorDialog, QFileDialog, QTabWidget,
-    QFrame, QComboBox, QCheckBox
+    QFrame, QComboBox, QCheckBox, QMessageBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QObject, QThread
 from PyQt6.QtGui import QColor, QIcon
@@ -269,6 +269,16 @@ class MandalaGUIApp(QMainWindow):
         self.setCentralWidget(central_widget)
 
         main_layout = QVBoxLayout()
+
+        # Add help button at the top right
+        help_layout = QHBoxLayout()
+        help_layout.addStretch()
+        help_button = QPushButton("?")
+        help_button.setMaximumWidth(40)
+        help_button.setToolTip("About this application")
+        help_button.clicked.connect(self.show_about)
+        help_layout.addWidget(help_button)
+        main_layout.addLayout(help_layout)
 
         # Create tab widget for organized parameters
         tabs = QTabWidget()
@@ -539,6 +549,19 @@ class MandalaGUIApp(QMainWindow):
     # ========================================================================
     # Event Handlers
     # ========================================================================
+
+    def show_about(self):
+        """Show about dialog with application information."""
+        about_text = (
+            "Mandala PDF Generator\n\n"
+            "A powerful, configurable application for generating\n"
+            "beautiful mandala PDF templates.\n\n"
+            "Version 1.0.0\n"
+            "rbh-prod\n\n"
+            "Repository:\n"
+            "https://github.com/remmmi/mandala_empty_templates_generator"
+        )
+        QMessageBox.about(self, "About Mandala PDF Generator", about_text)
 
     def update_color_button(self):
         """Update color button appearance."""
