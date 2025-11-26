@@ -14,7 +14,7 @@ import argparse
 import json
 import multiprocessing
 from io import BytesIO
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from PIL import Image, ImageDraw
 from reportlab.lib.pagesizes import A4, A3, LETTER
 from reportlab.lib.units import cm
@@ -363,9 +363,16 @@ def create_pdf(params):
         futures = {executor.submit(generate_page_data, design_num, params): design_num
                    for design_num in range(1, num_mandala_designs + 1)}
 
-        for future in futures:
-            design_num, img_data = future.result()
-            mandala_images[design_num] = img_data
+        # Use as_completed for better error handling and progress tracking
+        for future in as_completed(futures):
+            try:
+                design_num, img_data = future.result()
+                mandala_images[design_num] = img_data
+                print(f"Design {design_num}/{num_mandala_designs} generated")
+            except Exception as e:
+                design_num = futures[future]
+                print(f"ERROR: Failed to generate design {design_num}: {e}")
+                raise RuntimeError(f"Generation failed: {e}") from e
 
     # Create PDF with repeated images
     pdf_canvas = canvas.Canvas(filename, pagesize=page_size)

@@ -50,7 +50,11 @@ jobs:
       # ========================================================================
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --windowed --name "Mandala PDF Generator" gui_pdf_generator.py
+          pyinstaller --onefile --windowed --name "Mandala PDF Generator" `
+            --hidden-import=multiprocessing `
+            --hidden-import=multiprocessing.spawn `
+            --hidden-import=PIL._tkinter_finder `
+            gui_pdf_generator.py
 
       - name: Verify EXE build
         shell: pwsh
