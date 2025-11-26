@@ -58,6 +58,8 @@ Source: "dist\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; Documentation
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+; Configuration examples (zoo directory)
+Source: "zoo\*"; DestDir: "{app}\zoo"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 ; Start menu icon

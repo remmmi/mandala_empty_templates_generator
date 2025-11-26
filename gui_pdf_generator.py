@@ -257,11 +257,81 @@ class MandalaGUIApp(QMainWindow):
         self.current_color = QColor()  # Will be initialized in create_style_tab
         self.worker = None
 
-        # Create zoo directory if it doesn't exist
-        self.zoo_dir = Path("zoo")
-        self.zoo_dir.mkdir(exist_ok=True)
+        # Setup zoo directory - try local first, fallback to user directory
+        self.zoo_dir = self._setup_zoo_directory()
 
         self.init_ui()
+
+    def _setup_zoo_directory(self):
+        """Setup zoo directory for configuration files.
+
+        Try to use local 'zoo' directory first (for portable installations).
+        If that fails (e.g., installed in Program Files), use AppData.
+        """
+        # Get the application directory (where the exe/script is located)
+        if getattr(sys, 'frozen', False):
+            # Running as compiled exe
+            app_dir = Path(sys.executable).parent
+        else:
+            # Running as script
+            app_dir = Path(__file__).parent
+
+        # Try local zoo directory first
+        local_zoo = app_dir / "zoo"
+        try:
+            local_zoo.mkdir(exist_ok=True)
+            # Test write permission
+            test_file = local_zoo / ".write_test"
+            test_file.touch()
+            test_file.unlink()
+            return local_zoo
+        except (PermissionError, OSError):
+            # Can't write to installation directory (e.g., Program Files)
+            # Use user's AppData directory instead
+            import os
+            if sys.platform == 'win32':
+                user_data = Path(os.environ.get('APPDATA', Path.home()))
+            else:
+                user_data = Path.home() / '.config'
+
+            zoo_dir = user_data / 'Mandala PDF Generator' / 'zoo'
+            zoo_dir.mkdir(parents=True, exist_ok=True)
+
+            print(f"Note: Using configuration directory: {zoo_dir}")
+            return zoo_dir
+
+    def _get_safe_output_path(self, filename):
+        """Get a safe output path for PDF files.
+
+        If we're in a protected directory (e.g., Program Files),
+        use the user's Desktop directory instead.
+        """
+        # Get the application directory
+        if getattr(sys, 'frozen', False):
+            app_dir = Path(sys.executable).parent
+        else:
+            app_dir = Path(__file__).parent
+
+        # Check if we can write to the app directory
+        try:
+            test_file = app_dir / ".write_test"
+            test_file.touch()
+            test_file.unlink()
+            # Can write here, use current directory
+            return app_dir / filename
+        except (PermissionError, OSError):
+            # Can't write to app directory, use Desktop
+            import os
+            if sys.platform == 'win32':
+                # Windows: use Desktop
+                desktop = Path(os.path.expanduser('~')) / 'Desktop'
+            else:
+                # Linux/Mac: use home directory
+                desktop = Path.home()
+
+            output_path = desktop / filename
+            print(f"Note: Saving PDF to: {output_path}")
+            return output_path
 
     def init_ui(self):
         """Initialize the user interface."""
@@ -472,9 +542,10 @@ class MandalaGUIApp(QMainWindow):
         pdf_layout.addWidget(output_label_title)
         self.output_input = QSpinBox()  # Using as placeholder
 
-        # Get default output filename from parameters
-        default_output = get_param_config('output_filename')['value']
-        self.output_label = QLabel(default_output)
+        # Get default output filename - use Desktop if in Program Files
+        default_filename = get_param_config('output_filename')['value']
+        default_output = self._get_safe_output_path(default_filename)
+        self.output_label = QLabel(str(default_output))
         self.output_label.setStyleSheet("font-family: monospace; background-color: white; color: black; padding: 5px; border: 1px solid #ccc;")
         pdf_layout.addWidget(self.output_label, 1)
 
