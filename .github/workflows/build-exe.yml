@@ -26,11 +26,37 @@ jobs:
 
     - name: Build EXE with PyInstaller
       run: |
-        pyinstaller --onefile --windowed --name "Mandala PDF Generator" --icon=mandala.ico gui_pdf_generator.py
-      continue-on-error: true  # Continue even if icon doesn't exist
+        pyinstaller --onefile --windowed ^
+          --name "Mandala PDF Generator" ^
+          --add-data "generate_pdf_parallel.py:." ^
+          --hidden-import=PyQt6 ^
+          --hidden-import=PyQt6.QtCore ^
+          --hidden-import=PyQt6.QtGui ^
+          --hidden-import=PyQt6.QtWidgets ^
+          --hidden-import=PIL ^
+          --hidden-import=PIL.Image ^
+          --hidden-import=reportlab ^
+          --hidden-import=reportlab.pdfgen ^
+          --hidden-import=reportlab.lib ^
+          --collect-all=PyQt6 ^
+          --collect-all=reportlab ^
+          gui_pdf_generator.py
+      continue-on-error: true
+
+    - name: Check EXE size
+      run: |
+        if (Test-Path "dist\Mandala PDF Generator.exe") {
+          $size = (Get-Item "dist\Mandala PDF Generator.exe").Length
+          $sizeMB = [math]::Round($size / 1MB, 2)
+          Write-Output "EXE size: $sizeMB MB ($size bytes)"
+        } else {
+          Write-Output "ERROR: EXE file not found!"
+          Get-ChildItem dist/
+        }
 
     - name: Upload EXE as artifact
       uses: actions/upload-artifact@v4
+      if: always()
       with:
         name: Mandala-PDF-Generator-exe
         path: dist/Mandala PDF Generator.exe
