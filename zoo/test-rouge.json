@@ -1,0 +1,19 @@
+{
+  "dpi": 600,
+  "supersampling": 2.0,
+  "num_workers": 4,
+  "margin_cm": 0.3,
+  "page_format": "LETTER",
+  "num_mandala_designs": 20,
+  "image_repetitions": 1,
+  "base_circles": 4,
+  "circles_increment": 1,
+  "base_radii": 10,
+  "radii_increment": 1,
+  "dash_color": "#a51d2d",
+  "dash_length_px": 10,
+  "gap_length_px": 50,
+  "line_width_px": 2,
+  "center_circle_diameter_mm": 2.0,
+  "output_filename": "/home/m/Documents/mandalas/test-rouge"
+}
