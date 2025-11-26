@@ -110,28 +110,28 @@ jobs:
           $setupFile = Get-ChildItem -Path "installer_output" -Filter "*.exe" | Select-Object -First 1
           $zipName = "Mandala-PDF-Generator-v$version.zip"
 
-          # Create a README for the ZIP
-          $readmeContent = @"
-Mandala PDF Generator v$version
-================================
-
-Thank you for downloading Mandala PDF Generator!
-
-Installation:
-1. Extract this ZIP file
-2. Run the setup executable: $($setupFile.Name)
-3. Follow the installation wizard
-4. Launch the application from your Start Menu or Desktop
-
-Source Code:
-The complete source code is available on GitHub:
-https://github.com/remmmi/mandala_empty_templates_generator
-
-For documentation and support, please visit the GitHub repository.
-
-License: See LICENSE file in the repository
-"@
-
+          # Create a README for the ZIP (using array to avoid YAML parsing issues)
+          $readmeLines = @(
+            "Mandala PDF Generator v$version",
+            "================================",
+            "",
+            "Thank you for downloading Mandala PDF Generator!",
+            "",
+            "Installation:",
+            "1. Extract this ZIP file",
+            "2. Run the setup executable: $($setupFile.Name)",
+            "3. Follow the installation wizard",
+            "4. Launch the application from your Start Menu or Desktop",
+            "",
+            "Source Code:",
+            "The complete source code is available on GitHub:",
+            "https://github.com/remmmi/mandala_empty_templates_generator",
+            "",
+            "For documentation and support, please visit the GitHub repository.",
+            "",
+            "License: See LICENSE file in the repository"
+          )
+          $readmeContent = $readmeLines -join "`r`n"
           Set-Content -Path "installer_output\README.txt" -Value $readmeContent
 
           # Create ZIP with installer and README
