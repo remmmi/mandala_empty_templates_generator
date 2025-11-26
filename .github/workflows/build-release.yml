@@ -1,0 +1,194 @@
+name: Build and Release
+
+# Trigger: automatically runs when a tag starting with 'v' is pushed (e.g., v1.0.1)
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      # ========================================================================
+      # 1. SETUP: Checkout code and extract version
+      # ========================================================================
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+          Write-Host "Extracted version: $version"
+
+      # ========================================================================
+      # 2. PYTHON SETUP: Install Python and dependencies
+      # ========================================================================
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install PyQt6 Pillow reportlab pyinstaller
+
+      - name: Verify Python packages
+        run: |
+          python -c "import PyQt6, PIL, reportlab; print('All packages imported successfully')"
+
+      # ========================================================================
+      # 3. BUILD EXE: Use PyInstaller to create the Windows executable
+      # ========================================================================
+      - name: Build EXE with PyInstaller
+        run: |
+          pyinstaller --onefile --windowed --name "Mandala PDF Generator" gui_pdf_generator.py
+
+      - name: Verify EXE build
+        shell: pwsh
+        run: |
+          $exePath = "dist\Mandala PDF Generator.exe"
+          if (Test-Path $exePath) {
+            $size = (Get-Item $exePath).Length / 1MB
+            Write-Host "✅ EXE built successfully: $([Math]::Round($size, 2)) MB"
+          } else {
+            Write-Host "❌ ERROR: EXE not found at $exePath"
+            exit 1
+          }
+
+      # ========================================================================
+      # 4. INNO SETUP: Install and compile the installer
+      # ========================================================================
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup -y
+          # Add Inno Setup to PATH for this session
+          $innoPath = "C:\Program Files (x86)\Inno Setup 6"
+          echo "$innoPath" >> $env:GITHUB_PATH
+          Write-Host "Inno Setup installed"
+
+      - name: Compile installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = "${{ env.VERSION }}"
+          Write-Host "Compiling installer for version $version..."
+
+          # Run Inno Setup compiler with version parameter
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=$version installer.iss
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "❌ Inno Setup compilation failed"
+            exit 1
+          }
+
+          Write-Host "✅ Installer compiled successfully"
+
+      - name: Verify installer output
+        shell: pwsh
+        run: |
+          $setupFile = Get-ChildItem -Path "installer_output" -Filter "*.exe" | Select-Object -First 1
+          if ($setupFile) {
+            $size = $setupFile.Length / 1MB
+            Write-Host "✅ Installer found: $($setupFile.Name) ($([Math]::Round($size, 2)) MB)"
+          } else {
+            Write-Host "❌ ERROR: No installer found in installer_output/"
+            exit 1
+          }
+
+      # ========================================================================
+      # 5. PACKAGE: Create ZIP archive for distribution
+      # ========================================================================
+      - name: Create ZIP archive
+        shell: pwsh
+        run: |
+          $version = "${{ env.VERSION }}"
+          $setupFile = Get-ChildItem -Path "installer_output" -Filter "*.exe" | Select-Object -First 1
+          $zipName = "Mandala-PDF-Generator-v$version.zip"
+
+          # Create a README for the ZIP
+          $readmeContent = @"
+Mandala PDF Generator v$version
+================================
+
+Thank you for downloading Mandala PDF Generator!
+
+Installation:
+1. Extract this ZIP file
+2. Run the setup executable: $($setupFile.Name)
+3. Follow the installation wizard
+4. Launch the application from your Start Menu or Desktop
+
+Source Code:
+The complete source code is available on GitHub:
+https://github.com/remmmi/mandala_empty_templates_generator
+
+For documentation and support, please visit the GitHub repository.
+
+License: See LICENSE file in the repository
+"@
+
+          Set-Content -Path "installer_output\README.txt" -Value $readmeContent
+
+          # Create ZIP with installer and README
+          Compress-Archive -Path "installer_output\*" -DestinationPath $zipName
+
+          $zipSize = (Get-Item $zipName).Length / 1MB
+          Write-Host "✅ ZIP created: $zipName ($([Math]::Round($zipSize, 2)) MB)"
+
+      # ========================================================================
+      # 6. RELEASE: Create GitHub release with the ZIP
+      # ========================================================================
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: Mandala-PDF-Generator-v${{ env.VERSION }}.zip
+          body: |
+            ## Mandala PDF Generator v${{ env.VERSION }}
+
+            ### Installation
+            1. Download the ZIP file below
+            2. Extract it to a folder
+            3. Run the setup executable
+            4. Follow the installation wizard
+
+            ### What's Included
+            - Windows installer with the complete application
+            - Automatic Start Menu and Desktop shortcuts
+            - Easy uninstall through Windows Settings
+
+            ### Source Code
+            The source code is available in the automatically generated archives below (Source code zip/tar.gz).
+            You can also browse the code at the tag [${{ github.ref_name }}](https://github.com/remmmi/mandala_empty_templates_generator/tree/${{ github.ref_name }}).
+
+            ### About Windows SmartScreen
+            Since this is an unsigned application, Windows SmartScreen may show a warning. This is normal for open-source software without expensive code signing certificates. The complete source code is available for verification in this repository.
+
+            To install despite the warning:
+            1. Click "More info"
+            2. Click "Run anyway"
+
+            ### Checksum
+            You can verify the integrity of the download by checking the SHA256 hash of the ZIP file against the one listed in the release artifacts.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ========================================================================
+      # 7. CLEANUP: Upload artifacts for debugging (optional)
+      # ========================================================================
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-artifacts-v${{ env.VERSION }}
+          path: |
+            dist/
+            installer_output/
+            build/
+          retention-days: 30

@@ -1,0 +1,13 @@
+# Mandala PDF Generator - Python Dependencies
+
+# GUI Framework
+PyQt6>=6.5.0
+
+# Image processing
+Pillow>=10.0.0
+
+# PDF generation
+reportlab>=4.0.0
+
+# Build tool (for creating Windows EXE)
+pyinstaller>=6.0.0
