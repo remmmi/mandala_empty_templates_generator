@@ -170,6 +170,20 @@ PARAMETERS = {
         'cli_name': '--center-diameter'
     },
 
+    # Options de remplissage
+    'fill_page': {
+        'value': False,
+        'type': 'bool',
+        'description': 'Remplir toute la page avec des cercles supplémentaires (partiellement visibles en haut/bas).',
+        'cli_name': '--fill-page'
+    },
+    'show_page_numbers': {
+        'value': True,
+        'type': 'bool',
+        'description': 'Afficher les numéros de page en bas de chaque page.',
+        'cli_name': '--show-page-numbers'
+    },
+
     # Sortie
     'output_filename': {
         'value': 'gabarits_mandalas.pdf',
@@ -240,6 +254,7 @@ def generate_concentric_circles_image(num_circles, num_radii, params):
     gap_length = params['gap_length_px']
     line_width = params['line_width_px']
     center_diameter_mm = params['center_circle_diameter_mm']
+    fill_page = params.get('fill_page', False)
 
     pixels_per_cm = dpi / 2.54
 
@@ -270,17 +285,41 @@ def generate_concentric_circles_image(num_circles, num_radii, params):
     # Center of the image
     center = (render_width / 2, render_height / 2)
 
-    # Maximum radius (leave some margin)
-    max_radius = min(render_width, render_height) * 0.45
+    # Maximum radius for normal circles (based on smallest dimension)
+    base_max_radius = min(render_width, render_height) * 0.45
+
+    # Calculate circle spacing
+    circle_spacing = base_max_radius / num_circles
+
+    # Determine actual max radius based on fill_page option
+    if fill_page:
+        # Extend to fill entire page (largest dimension)
+        # Calculate max distance from center to any corner
+        corners = [
+            (0, 0),
+            (render_width, 0),
+            (0, render_height),
+            (render_width, render_height)
+        ]
+        max_radius = max(
+            math.sqrt((corner[0] - center[0])**2 + (corner[1] - center[1])**2)
+            for corner in corners
+        )
+    else:
+        max_radius = base_max_radius
+
+    # Generate circle radii
+    # Start with the base circles
+    num_total_circles = int(max_radius / circle_spacing) if fill_page else num_circles
+    circle_radii = [circle_spacing * (i + 1) for i in range(num_total_circles)]
 
     # Draw concentric circles with dashes
-    circle_radii = [max_radius * (i + 1) / num_circles for i in range(num_circles)]
-
     for r in circle_radii:
         draw_dashed_circle(draw, center, r, dash_color, dash_length=dash_length,
                           gap_length=gap_length, width=line_width)
 
-    # Draw radii (lines from center to outer circle) with dashes
+    # Draw radii (lines from center to edge) with dashes
+    # Extend to max_radius to reach edges when fill_page is enabled
     angle_step = 2 * math.pi / num_radii
     for i in range(num_radii):
         angle = i * angle_step
@@ -338,6 +377,7 @@ def create_pdf(params):
     num_workers = params['num_workers']
     margin_cm = params['margin_cm']
     page_format_str = params['page_format']
+    show_page_numbers = params.get('show_page_numbers', True)
 
     # Calculate total number of pages
     total_pages = num_mandala_designs * image_repetitions
@@ -396,9 +436,10 @@ def create_pdf(params):
             pdf_canvas.drawImage(img_reader, margin_pts, height - margin_pts - img_height,
                                 width=img_width, height=img_height)
 
-            # Show page number at bottom
-            pdf_canvas.setFont("Helvetica", 10)
-            pdf_canvas.drawString(width / 2 - 15, margin_pts / 2, f"Page {page_counter}")
+            # Show page number at bottom (if enabled)
+            if show_page_numbers:
+                pdf_canvas.setFont("Helvetica", 10)
+                pdf_canvas.drawString(width / 2 - 15, margin_pts / 2, f"Page {page_counter}")
 
             # New page (except after last page)
             if page_counter < total_pages:
@@ -440,7 +481,14 @@ Examples:
 
     # Add all parameters to argument parser
     for param_key, param_cfg in PARAMETERS.items():
-        if param_cfg['type'] == 'str' and 'options' in param_cfg:
+        if param_cfg['type'] == 'bool':
+            # Boolean parameter (flags)
+            parser.add_argument(
+                param_cfg['cli_name'],
+                action='store_true' if not param_cfg['value'] else 'store_false',
+                help=param_cfg['description']
+            )
+        elif param_cfg['type'] == 'str' and 'options' in param_cfg:
             # Enum-like parameter
             parser.add_argument(
                 param_cfg['cli_name'],

@@ -472,6 +472,22 @@ class MandalaGUIApp(QMainWindow):
         radii_inc_layout, self.radii_increment_spinbox = create_labeled_slider('radii_increment', "Pas radii:")
         layout.addLayout(radii_inc_layout)
 
+        layout.addSpacing(20)
+
+        # Fill page checkbox
+        self.fill_page_checkbox = QCheckBox("Remplir toute la page")
+        self.fill_page_checkbox.setToolTip(get_tooltip('fill_page'))
+        default_fill_page = get_param_config('fill_page')['value']
+        self.fill_page_checkbox.setChecked(default_fill_page)
+        layout.addWidget(self.fill_page_checkbox)
+
+        # Show page numbers checkbox
+        self.show_page_numbers_checkbox = QCheckBox("Afficher les numéros de page")
+        self.show_page_numbers_checkbox.setToolTip(get_tooltip('show_page_numbers'))
+        default_show_page_numbers = get_param_config('show_page_numbers')['value']
+        self.show_page_numbers_checkbox.setChecked(default_show_page_numbers)
+        layout.addWidget(self.show_page_numbers_checkbox)
+
         layout.addStretch()
         widget.setLayout(layout)
         return widget
@@ -627,7 +643,7 @@ class MandalaGUIApp(QMainWindow):
             "Mandala PDF Generator\n\n"
             "A powerful, configurable application for generating\n"
             "beautiful mandala PDF templates.\n\n"
-            "Version 1.0.0\n"
+            "Version 1.1.0\n"
             "rbh-prod\n\n"
             "Repository:\n"
             "https://github.com/remmmi/mandala_empty_templates_generator"
@@ -759,6 +775,10 @@ class MandalaGUIApp(QMainWindow):
                 self.width_spinbox.setValue(int(params['line_width_px']))
             if 'center_circle_diameter_mm' in params:
                 self.center_spinbox.setValue(float(params['center_circle_diameter_mm']))
+            if 'fill_page' in params:
+                self.fill_page_checkbox.setChecked(bool(params['fill_page']))
+            if 'show_page_numbers' in params:
+                self.show_page_numbers_checkbox.setChecked(bool(params['show_page_numbers']))
             if 'output_filename' in params:
                 self.output_label.setText(str(params['output_filename']))
 
@@ -801,6 +821,8 @@ class MandalaGUIApp(QMainWindow):
             'gap_length_px': self.gap_spinbox.value(),
             'line_width_px': self.width_spinbox.value(),
             'center_circle_diameter_mm': self.center_spinbox.value(),
+            'fill_page': self.fill_page_checkbox.isChecked(),
+            'show_page_numbers': self.show_page_numbers_checkbox.isChecked(),
             'output_filename': output_filename
         }
 
