@@ -8,6 +8,7 @@ import sys
 import subprocess
 import json
 import time
+import multiprocessing
 from pathlib import Path
 from threading import Thread
 from PyQt6.QtWidgets import (
@@ -785,6 +786,9 @@ class MandalaGUIApp(QMainWindow):
 # ============================================================================
 
 if __name__ == '__main__':
+    # Support for multiprocessing on Windows and frozen executables
+    multiprocessing.freeze_support()
+
     app = QApplication(sys.argv)
     window = MandalaGUIApp()
     window.show()

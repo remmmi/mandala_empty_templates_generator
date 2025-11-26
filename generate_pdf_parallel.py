@@ -12,6 +12,7 @@ import math
 import time
 import argparse
 import json
+import multiprocessing
 from io import BytesIO
 from concurrent.futures import ProcessPoolExecutor
 from PIL import Image, ImageDraw
@@ -19,6 +20,15 @@ from reportlab.lib.pagesizes import A4, A3, LETTER
 from reportlab.lib.units import cm
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
+
+# Fix multiprocessing on Windows and frozen executables
+if __name__ != '__main__':
+    # This module is being imported, not run directly
+    # Set the multiprocessing start method to 'spawn' explicitly for consistency
+    pass
+else:
+    # Support for frozen executables (PyInstaller)
+    multiprocessing.freeze_support()
 
 # ============================================================================
 # CONFIGURATION PARAMETERS - All configurable, with descriptions for GUI
