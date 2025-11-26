@@ -25,7 +25,7 @@ jobs:
         pip install PyQt6 Pillow reportlab pyinstaller
 
     - name: Verify Python packages
-      run: python -c "import PyQt6, PIL, reportlab; print('✓ All packages imported successfully')"
+      run: python -c "import PyQt6, PIL, reportlab; print('All packages imported successfully')"
 
     - name: Build EXE with PyInstaller
       run: pyinstaller --onefile --windowed --name "Mandala PDF Generator" gui_pdf_generator.py
@@ -33,22 +33,16 @@ jobs:
     - name: Check build results
       shell: pwsh
       run: |
-        Write-Host "Current directory: $(pwd)"
-        Write-Host "Files in current dir:"
-        ls -la
-        Write-Host "`nContents of dist/:"
-        if (Test-Path dist) {
-          ls -la dist/
-          $exePath = "dist\Mandala PDF Generator.exe"
-          if (Test-Path $exePath) {
-            $size = (Get-Item $exePath).Length / 1MB
-            Write-Host "✓ EXE found: $([Math]::Round($size, 2)) MB"
-          } else {
-            Write-Host "✗ EXE not found, listing all exe files:"
-            Get-ChildItem -Recurse -Filter "*.exe"
-          }
+        Write-Host "Checking build output..."
+        $exePath = "dist\Mandala PDF Generator.exe"
+        if (Test-Path $exePath) {
+          $size = (Get-Item $exePath).Length / 1MB
+          Write-Host "EXE found: $([Math]::Round($size, 2)) MB"
         } else {
-          Write-Host "dist/ directory not found!"
+          Write-Host "ERROR: EXE not found at $exePath"
+          Write-Host "Contents of dist/:"
+          Get-ChildItem -Recurse dist/ | Format-Table -Property Name, Length
+          exit 1
         }
 
     - name: Upload EXE as artifact
