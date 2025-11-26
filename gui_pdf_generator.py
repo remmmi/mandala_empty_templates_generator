@@ -21,7 +21,7 @@ from PyQt6.QtGui import QColor, QIcon
 
 # Import parameters from the main generator script
 sys.path.insert(0, str(Path(__file__).parent))
-from generate_pdf_parallel import PARAMETERS
+from generate_pdf_parallel import PARAMETERS, create_pdf
 
 # ============================================================================
 # Helper functions
@@ -157,61 +157,61 @@ class PDFGeneratorWorker(QThread):
     def run(self):
         """Generate PDF in background thread."""
         try:
-            # Calculate total weight
-            total_weight = self.calculate_total_weight()
-
-            # Build command line arguments
-            cmd = ['python3', 'generate_pdf_parallel.py']
-
-            # Map parameter names to CLI arguments
-            param_mapping = {
-                'dpi': '--dpi',
-                'supersampling': '--supersampling',
-                'num_workers': '--workers',
-                'margin_cm': '--margin',
-                'page_format': '--format',
-                'num_mandala_designs': '--designs',
-                'image_repetitions': '--repetitions',
-                'base_circles': '--base-circles',
-                'base_radii': '--base-radii',
-                'dash_color': '--color',
-                'dash_length_px': '--dash-length',
-                'gap_length_px': '--gap-length',
-                'line_width_px': '--line-width',
-                'center_circle_diameter_mm': '--center-diameter',
-                'output_filename': '--output'
-            }
-
-            for param_key, cli_arg in param_mapping.items():
-                if param_key in self.params:
-                    cmd.extend([cli_arg, str(self.params[param_key])])
-
             # Gradually emit 1%, 2%, 3% over 4 seconds before starting generation
             for percent in [1.0, 2.0, 3.0]:
                 self.progress.emit(percent)
-                time.sleep(1.33)  # ~1.33 seconds per percentage point
+                time.sleep(1.33)
 
-            # Start the generator script (non-blocking)
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            # Calculate total weight
+            total_weight = self.calculate_total_weight()
 
-            # Monitor process and emit smooth progress
-            # Continue until PDF file exists (ensuring it's written to disk)
+            # Prepare parameters for create_pdf
+            pdf_params = self.params.copy()
+
+            # Convert string values to correct types for create_pdf
+            pdf_params['dpi'] = int(pdf_params['dpi'])
+            pdf_params['supersampling'] = float(pdf_params['supersampling'])
+            pdf_params['num_workers'] = int(pdf_params['num_workers'])
+            pdf_params['margin_cm'] = float(pdf_params['margin_cm'])
+            pdf_params['num_mandala_designs'] = int(pdf_params['num_mandala_designs'])
+            pdf_params['image_repetitions'] = int(pdf_params['image_repetitions'])
+            pdf_params['base_circles'] = int(pdf_params['base_circles'])
+            pdf_params['circles_increment'] = int(pdf_params['circles_increment'])
+            pdf_params['base_radii'] = int(pdf_params['base_radii'])
+            pdf_params['radii_increment'] = int(pdf_params['radii_increment'])
+            pdf_params['dash_length_px'] = int(pdf_params['dash_length_px'])
+            pdf_params['gap_length_px'] = int(pdf_params['gap_length_px'])
+            pdf_params['line_width_px'] = int(pdf_params['line_width_px'])
+            pdf_params['center_circle_diameter_mm'] = float(pdf_params['center_circle_diameter_mm'])
+
+            # Monitor progress by checking if PDF exists
             pdf_path = Path(self.params['output_filename'])
             iteration_count = 0
-            max_iterations = max(300, self.num_designs * 30)  # Longer timeout to avoid jumping to 100%
+            max_iterations = max(300, self.num_designs * 30)
             last_emitted_percent = 3
 
-            while not pdf_path.exists():
+            # Start PDF generation in a way that allows progress monitoring
+            # Use thread to avoid blocking
+            generation_complete = False
+            generation_error = None
+
+            def generate_with_progress():
+                nonlocal generation_complete, generation_error
+                try:
+                    create_pdf(pdf_params)
+                    generation_complete = True
+                except Exception as e:
+                    generation_error = str(e)
+                    generation_complete = True
+
+            gen_thread = Thread(target=generate_with_progress)
+            gen_thread.start()
+
+            # Monitor progress while generation happens
+            while not generation_complete:
                 iteration_count += 1
 
-                # Check if process failed
-                poll_result = process.poll()
-                if poll_result is not None and poll_result != 0:
-                    # Process failed, exit loop
-                    break
-
                 # Calculate progress: weight-based progression that reaches 97% gradually
-                # Map iteration count to accumulated weight percentage
                 iteration_fraction = min(iteration_count / max_iterations, 0.94)
                 progress_percent = int(3.0 + iteration_fraction * 94.0)
 
@@ -220,14 +220,13 @@ class PDFGeneratorWorker(QThread):
                     self.progress.emit(progress_percent)
                     last_emitted_percent = progress_percent
 
-                # Update every 300ms for smooth progression
                 time.sleep(0.3)
 
-            # Wait for process to complete
-            stdout, stderr = process.communicate()
+            # Wait for thread to finish
+            gen_thread.join()
 
-            if process.returncode != 0:
-                self.error.emit(f"Generation failed: {stderr}")
+            if generation_error:
+                self.error.emit(f"Generation failed: {generation_error}")
             elif pdf_path.exists():
                 # PDF successfully generated
                 # Smoothly transition to 100%
