@@ -24,34 +24,31 @@ jobs:
         python -m pip install --upgrade pip
         pip install PyQt6 Pillow reportlab pyinstaller
 
-    - name: Build EXE with PyInstaller
-      run: |
-        pyinstaller --onefile --windowed ^
-          --name "Mandala PDF Generator" ^
-          --add-data "generate_pdf_parallel.py:." ^
-          --hidden-import=PyQt6 ^
-          --hidden-import=PyQt6.QtCore ^
-          --hidden-import=PyQt6.QtGui ^
-          --hidden-import=PyQt6.QtWidgets ^
-          --hidden-import=PIL ^
-          --hidden-import=PIL.Image ^
-          --hidden-import=reportlab ^
-          --hidden-import=reportlab.pdfgen ^
-          --hidden-import=reportlab.lib ^
-          --collect-all=PyQt6 ^
-          --collect-all=reportlab ^
-          gui_pdf_generator.py
-      continue-on-error: true
+    - name: Verify Python packages
+      run: python -c "import PyQt6, PIL, reportlab; print('✓ All packages imported successfully')"
 
-    - name: Check EXE size
+    - name: Build EXE with PyInstaller
+      run: pyinstaller --onefile --windowed --name "Mandala PDF Generator" gui_pdf_generator.py
+
+    - name: Check build results
+      shell: pwsh
       run: |
-        if (Test-Path "dist\Mandala PDF Generator.exe") {
-          $size = (Get-Item "dist\Mandala PDF Generator.exe").Length
-          $sizeMB = [math]::Round($size / 1MB, 2)
-          Write-Output "EXE size: $sizeMB MB ($size bytes)"
+        Write-Host "Current directory: $(pwd)"
+        Write-Host "Files in current dir:"
+        ls -la
+        Write-Host "`nContents of dist/:"
+        if (Test-Path dist) {
+          ls -la dist/
+          $exePath = "dist\Mandala PDF Generator.exe"
+          if (Test-Path $exePath) {
+            $size = (Get-Item $exePath).Length / 1MB
+            Write-Host "✓ EXE found: $([Math]::Round($size, 2)) MB"
+          } else {
+            Write-Host "✗ EXE not found, listing all exe files:"
+            Get-ChildItem -Recurse -Filter "*.exe"
+          }
         } else {
-          Write-Output "ERROR: EXE file not found!"
-          Get-ChildItem dist/
+          Write-Host "dist/ directory not found!"
         }
 
     - name: Upload EXE as artifact
